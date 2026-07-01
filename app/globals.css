@@ -478,7 +478,9 @@ figcaption {
 }
 
 .detailsGrid,
-.playbook {
+.playbook,
+.matchupGrid,
+.favoriteGrid {
   display: grid;
   gap: 12px;
   margin-top: 14px;
@@ -489,7 +491,9 @@ figcaption {
 }
 
 .detailBox,
-.checklist {
+.checklist,
+.skillPanel,
+.matchupColumn {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -507,6 +511,150 @@ figcaption {
 
 .playbook {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.skillPanel {
+  margin-top: 14px;
+}
+
+.skillPanel .sectionHeader {
+  align-items: flex-start;
+}
+
+.skillPanel h4 {
+  margin: 5px 0 0;
+}
+
+.skillSequence {
+  display: grid;
+  grid-template-columns: repeat(15, minmax(34px, 1fr));
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.skillSequence span {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 900;
+}
+
+.skillSequence small {
+  color: var(--soft);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.skillSequence .ultimateSkill {
+  border-color: rgba(233, 196, 106, 0.45);
+  color: var(--gold);
+}
+
+.abilityGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.abilityCard {
+  align-items: flex-start;
+  min-height: 148px;
+}
+
+.abilityCard strong {
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--green);
+}
+
+.abilityCard h5 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.abilityCard p {
+  display: -webkit-box;
+  margin-bottom: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.matchupPreview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.matchupGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.favoriteGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.matchupColumn h4 {
+  margin-bottom: 10px;
+}
+
+.compactMatchups {
+  padding: 12px;
+}
+
+.matchupCard {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.matchupCard img {
+  border-radius: 8px;
+}
+
+.matchupCard strong,
+.matchupCard span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.matchupCard span {
+  color: var(--soft);
+  font-size: 0.76rem;
+}
+
+.matchupCard b {
+  font-size: 0.95rem;
+}
+
+.dangerMatchup b {
+  color: #f87171;
+}
+
+.goodMatchup b {
+  color: var(--green);
 }
 
 .checklist p {
@@ -624,8 +772,16 @@ figcaption {
 
   .modeTabs,
   .detailsGrid,
-  .playbook {
+  .playbook,
+  .abilityGrid,
+  .matchupGrid,
+  .matchupPreview,
+  .favoriteGrid {
     grid-template-columns: 1fr;
+  }
+
+  .skillSequence {
+    grid-template-columns: repeat(5, minmax(42px, 1fr));
   }
 
   .sidebar {

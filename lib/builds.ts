@@ -81,6 +81,18 @@ export type Matchup = {
   games: number;
 };
 
+export type ChampionAbility = {
+  key: "P" | "Q" | "W" | "E" | "R";
+  name: string;
+  description: string;
+};
+
+export type ChampionAbilityDetails = {
+  championId: string;
+  passive: ChampionAbility;
+  abilities: ChampionAbility[];
+};
+
 type ChampionMetaProfile = {
   role: ChampionRole;
   style: Build["style"];
@@ -106,6 +118,22 @@ type DDragonChampion = {
 
 type DDragonChampionResponse = {
   data: Record<string, DDragonChampion>;
+};
+
+type DDragonChampionDetail = DDragonChampion & {
+  passive: {
+    name: string;
+    description: string;
+  };
+  spells: Array<{
+    name: string;
+    description: string;
+    tooltip?: string;
+  }>;
+};
+
+type DDragonChampionDetailResponse = {
+  data: Record<string, DDragonChampionDetail>;
 };
 
 type DDragonItem = {
@@ -553,6 +581,32 @@ export async function loadDDragonData(version = ddragonVersion()): Promise<DDrag
   };
 }
 
+export async function loadChampionAbilityDetails(championId: string, version = ddragonVersion()): Promise<ChampionAbilityDetails> {
+  const response = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/pt_BR/champion/${championId}.json`);
+
+  if (!response.ok) {
+    throw new Error("Nao foi possivel carregar as habilidades do campeao.");
+  }
+
+  const json = (await response.json()) as DDragonChampionDetailResponse;
+  const champion = json.data[championId];
+  const keys = ["Q", "W", "E", "R"] as const;
+
+  return {
+    championId,
+    passive: {
+      key: "P",
+      name: champion.passive.name,
+      description: cleanDDragonText(champion.passive.description)
+    },
+    abilities: champion.spells.map((spell, index) => ({
+      key: keys[index],
+      name: spell.name,
+      description: cleanDDragonText(spell.tooltip || spell.description)
+    }))
+  };
+}
+
 export function getModeItems(items: CatalogItem[], mode: GameMode) {
   const mapId = modes.find((item) => item.id === mode)?.mapId ?? "11";
 
@@ -562,7 +616,7 @@ export function getModeItems(items: CatalogItem[], mode: GameMode) {
   });
 }
 
-export function getBuildsFor(champion: Champion, allItems: CatalogItem[], mode: GameMode, archetypeId: BuildArchetypeId = "meta"): Build[] {
+export function getBuildsFor(champion: Champion, allItems: CatalogItem[], mode: GameMode, archetypeId: BuildArchetypeId = "meta", allChampions: Champion[] = []): Build[] {
   const modeItems = getModeItems(allItems, mode);
   const primaryTag = getPrimaryTag(champion);
   const archetype = buildArchetypes.find((a) => a.id === archetypeId) ?? buildArchetypes[0];
@@ -605,8 +659,8 @@ export function getBuildsFor(champion: Champion, allItems: CatalogItem[], mode: 
       playPattern: playPatternByTag(primaryTag, mode),
       avoid: avoidByMode(mode),
       skillOrder: metaProfile.skillOrder ?? generateSkillOrder(primaryTag, archetype.id),
-      strongAgainst: generateMatchups(champion, true),
-      weakAgainst: generateMatchups(champion, false)
+      strongAgainst: generateMatchups(champion, allChampions, role, true),
+      weakAgainst: generateMatchups(champion, allChampions, role, false)
     }
   ];
 }
@@ -761,27 +815,42 @@ function generateSkillOrder(tag: string, archetypeId: BuildArchetypeId): string[
   return ["Q", "E", "W", "Q", "Q", "R", "Q", "Q", "E", "E", "R", "E", "E", "W", "W"];
 }
 
-const championsPool = ["Yasuo", "Zed", "Yone", "Ahri", "Akali", "Irelia", "Sylas", "LeBlanc", "Katarina", "Talon", "Syndra", "Orianna", "Viktor", "Azir"];
+// IMPORTANTE: nao existe fonte de estatisticas de partidas reais conectada (tipo op.gg/u.gg).
+// Este gerador cria uma estimativa heuristica e DETERMINISTICA (mesmo campeao sempre da o mesmo
+// resultado) restrita a campeoes que jogam a mesma rota, pra pelo menos ser plausivel.
+// A UI deixa isso explicito ("estimativa") em vez de fingir que e dado real.
+function hashOf(text: string) {
+  return text.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+}
 
-function generateMatchups(champion: Champion, isStrong: boolean): Matchup[] {
-  const hash = champion.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const pool = [...championsPool].sort((a, b) => (hash * a.charCodeAt(0)) % 10 - (hash * b.charCodeAt(0)) % 10);
-  
+function generateMatchups(champion: Champion, allChampions: Champion[], role: ChampionRole, isStrong: boolean): Matchup[] {
+  const hash = hashOf(champion.id);
+
+  const sameRole = allChampions.filter((c) => c.id !== champion.id && c.roles.includes(role));
+  const pool = sameRole.length >= 6 ? sameRole : allChampions.filter((c) => c.id !== champion.id);
+
+  const sorted = [...pool].sort((a, b) => {
+    const scoreA = (hash * hashOf(a.id)) % 97;
+    const scoreB = (hash * hashOf(b.id)) % 97;
+    return scoreA - scoreB;
+  });
+
+  const offset = isStrong ? 0 : Math.floor(sorted.length / 2);
   const matchups: Matchup[] = [];
-  const offset = isStrong ? 0 : 5;
-  for (let i = 0; i < 5; i++) {
-    const opp = pool[(offset + i) % pool.length];
+
+  for (let i = 0; i < 5 && sorted.length > 0; i++) {
+    const opp = sorted[(offset + i) % sorted.length];
     const jitter = ((hash + i * 17) % 40) / 10;
     const baseWinRate = isStrong ? 52 + (hash % 8) + jitter : 42 + (hash % 5) + jitter;
     matchups.push({
-      championId: opp.replace(/\s+/g, ""),
-      championName: opp,
+      championId: opp.id,
+      championName: opp.name,
       winRate: Number(baseWinRate.toFixed(2)),
-      games: 1000 + (hash * 7) % 5000 + i * 342
+      games: 1000 + ((hash * 7) % 5000) + i * 342
     });
   }
-  
-  return matchups.sort((a, b) => isStrong ? b.winRate - a.winRate : a.winRate - b.winRate);
+
+  return matchups.sort((a, b) => (isStrong ? b.winRate - a.winRate : a.winRate - b.winRate));
 }
 
 function inferRoles(tags: string[]): ChampionRole[] {
@@ -899,6 +968,15 @@ function normalizeItemName(name: string) {
     .toLowerCase()
     .replace(/['.]/g, "")
     .replace(/&/g, "and")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanDDragonText(text: string) {
+  return text
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\{\{[^}]+\}\}/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
