@@ -630,9 +630,20 @@ export function getBuildsFor(champion: Champion, allItems: CatalogItem[], mode: 
 
   const boots = pickNamedItem(modeItems, metaProfile.boots) ?? pickBoot(modeItems, primaryTag);
   const starters = pickNamedItems(modeItems, metaProfile.starting, 2);
-  const rankedCore = pickNamedItems(modeItems, metaProfile.core, 3);
+
+  // Antes disso, o core vinha sempre de metaProfile.core, ignorando o arquetipo escolhido na aba.
+  // Resultado: trocar de "Meta" pra "Critico" ou "Letalidade" nao mudava um unico item.
+  // Agora, quando o arquetipo nao e "meta", a gente tenta montar o core a partir da lista
+  // preferida daquele arquetipo primeiro, e so cai no perfil padrao se nao achar itens suficientes
+  // disponiveis nesse modo de jogo.
+  const archetypeCoreSeed = archetype.id !== "meta" ? pickNamedItems(modeItems, archetype.preferredItems, 3) : [];
+  const rankedCore = archetypeCoreSeed.length >= 2 ? archetypeCoreSeed : pickNamedItems(modeItems, metaProfile.core, 3);
   const core = fillItems(rankedCore, scored.map(({ item }) => item), boots ? [boots.id] : [], 3);
-  const situationalSeeds = pickNamedItems(modeItems, metaProfile.situational, 5);
+
+  const situationalPool = archetype.id !== "meta"
+    ? Array.from(new Set([...archetype.preferredItems, ...metaProfile.situational]))
+    : metaProfile.situational;
+  const situationalSeeds = pickNamedItems(modeItems, situationalPool, 5);
   const situational = fillItems(situationalSeeds, scored.map(({ item }) => item), [...core.map((item) => item.id), boots?.id ?? ""], 5);
   const modeText = modeCopy(mode);
 
@@ -699,8 +710,8 @@ function getChampionMetaProfile(champion: Champion, mode: GameMode, archetypeId:
     return {
       ...profile,
       confidence: Math.max(70, profile.confidence - 6),
-      source: `${metaSource} Usando o estilo selecionado como filtro secundario.`,
-      notes: "O core parte do consenso atual e o estilo escolhido puxa os itens situacionais para essa proposta."
+      source: `${metaSource} Estilo selecionado prioriza itens desse arquetipo no core e nos situacionais.`,
+      notes: "O core agora tenta usar os itens tipicos do estilo escolhido primeiro, caindo pro consenso padrao so quando faltar opcao no modo atual."
     };
   }
 
